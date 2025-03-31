@@ -1,16 +1,20 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const User = require("../models/user");
+const { PrismaClient } = require("@prisma/client");
+
+const prisma = new PrismaClient();
 
 const register = async (req, res) => {
   const { username, password } = req.body;
   try {
-    const userExists = await User.findOne({ username });
+    const userExists = await prisma.user.findUnique({ where: { username } });
     if (userExists) {
       return res.status(400).json({ message: "User already exists" });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({ username, password: hashedPassword });
+    const user = await prisma.user.create({
+      data: { username, password: hashedPassword },
+    });
 
     const token = jwt.sign(
       {
@@ -19,7 +23,7 @@ const register = async (req, res) => {
       process.env.JWT_SECRET,
       {
         expiresIn: "30d",
-      },
+      }
     );
 
     if (user) {
@@ -39,7 +43,7 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   const { username, password } = req.body;
   try {
-    const user = await User.findOne({ username });
+    const user = await prisma.user.findUnique({ where: { username } });
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
@@ -71,7 +75,13 @@ const getUser = async (req, res) => {
     const token = req.headers.authorization.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decoded.id).select("-password");
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: {
+        id: true,
+        username: true,
+      },
+    });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
