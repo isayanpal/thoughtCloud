@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const authRoutes = require("./routes/user");
+const postRoutes = require("./routes/post");
 
 dotenv.config();
 
@@ -11,6 +12,7 @@ app.use(express.json());
 
 
 app.use("/api/auth", authRoutes);
+app.use("/api/post",postRoutes);
 
 const PORT = 5000;
 app.listen(() => {
