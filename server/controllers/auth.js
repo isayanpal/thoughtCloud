@@ -23,10 +23,12 @@ const register = async (req, res) => {
     });
 
     return res.status(201).json({
-      id: user.id,
-      name: user.username,
       token,
-      message: "User registered successfully",
+      user:{
+        id: user.id,
+        name: user.username,
+        message: "User registered successfully",
+      }
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
