@@ -4,6 +4,7 @@ const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 
+// Register User
 const register = async (req, res) => {
   const { username, password } = req.body;
   try {
@@ -11,56 +12,45 @@ const register = async (req, res) => {
     if (userExists) {
       return res.status(400).json({ message: "User already exists" });
     }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: { username, password: hashedPassword },
     });
 
-    const token = jwt.sign(
-      {
-        id: user._id,
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "30d",
-      }
-    );
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
+      expiresIn: "30d",
+    });
 
-    if (user) {
-      return res.status(201).json({
-        _id: user.id,
-        name: user.username,
-        message: "User registered successfully",
-      });
-    } else {
-      throw new Error("Invalid user data");
-    }
+    return res.status(201).json({
+      id: user.id,
+      name: user.username,
+      token,
+      message: "User registered successfully",
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
+// Login User
 const login = async (req, res) => {
   const { username, password } = req.body;
   try {
     const user = await prisma.user.findUnique({ where: { username } });
-    if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
+    
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(400).json({ message: "Invalid username or password" });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid password" });
-    }
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
       expiresIn: "30d",
     });
 
     res.status(200).json({
       token,
       user: {
-        id: user._id,
+        id: user.id,
         username: user.username,
         message: "Logged in successfully",
       },
@@ -70,17 +60,19 @@ const login = async (req, res) => {
   }
 };
 
+// Get User Details
 const getUser = async (req, res) => {
   try {
+    if (!req.headers.authorization) {
+      return res.status(401).json({ message: "No token provided" });
+    }
+
     const token = req.headers.authorization.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: {
-        id: true,
-        username: true,
-      },
+      select: { id: true, username: true },
     });
 
     if (!user) {
@@ -89,7 +81,7 @@ const getUser = async (req, res) => {
 
     res.status(200).json(user);
   } catch (error) {
-    res.status(401).json({ message: "Not authorized", error });
+    res.status(401).json({ message: "Not authorized", error: error.message });
   }
 };
 

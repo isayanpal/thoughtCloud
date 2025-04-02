@@ -6,9 +6,16 @@ const createPost = async (req, res) => {
   try {
     const { title, content } = req.body;
     const image = req.file ? req.file.path : null;
+    const authorId = req.userId;
+
+    if (!authorId) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized: No user ID found" });
+    }
 
     const post = await prisma.post.create({
-      data: { title, content, image },
+      data: { title, content, image, authorId },
     });
     res.status(201).json(post);
   } catch (error) {
@@ -19,7 +26,15 @@ const createPost = async (req, res) => {
 //get all posts
 const getAllPosts = async (req, res) => {
   try {
-    const posts = await prisma.post.findMany();
+    const posts = await prisma.post.findMany({
+      include: {
+        author: {
+          select: {
+            username: true,
+          },
+        },
+      },
+    });
     res.status(200).json(posts);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -30,7 +45,16 @@ const getAllPosts = async (req, res) => {
 const getPostById = async (req, res) => {
   try {
     const { id } = req.params;
-    const post = await prisma.post.findUnique({ where: { id } });
+    const post = await prisma.post.findUnique({
+      where: { id },
+      include: {
+        author: {
+          select: {
+            username: true,
+          },
+        },
+      },
+    });
     if (!post) {
       return res.status(404).json({ message: "Post not found" });
     }
@@ -52,6 +76,10 @@ const updatePost = async (req, res) => {
       return res.status(404).json({ message: "Post not found" });
     }
 
+    if (existingPost.authorId !== req.userId) {
+      return res.status(403).json({ message: "Forbidden: Not your post" });
+    }
+
     const updatedPost = await prisma.post.update({
       where: { id },
       data: {
@@ -70,6 +98,16 @@ const updatePost = async (req, res) => {
 const deletePost = async (req, res) => {
   try {
     const { id } = req.params;
+    const post = await prisma.post.findUnique({ where: { id } });
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    if (post.authorId !== req.userId) {
+      return res.status(403).json({ message: "Forbidden: Not your post" });
+    }
+
     await prisma.post.delete({ where: { id } });
     res.status(204).send();
   } catch (error) {
