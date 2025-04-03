@@ -35,7 +35,7 @@ export const useAuthStore = create<AuthState>((set, get)=>({
         const token = get().token || localStorage.getItem("token");
         if(!token) return;
         try {
-            const response = await axios.get(`${BASE_URL}/auth/me`,{
+            const response = await axios.get(`${BASE_URL}/auth/user`,{
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
