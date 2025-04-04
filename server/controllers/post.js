@@ -1,11 +1,14 @@
 const { PrismaClient } = require("@prisma/client");
 const multer = require("multer");
 const fs = require("fs");
+const path = require("path");
+const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
 
 const uploadMiddleware = multer({ dest: "uploads/" });
 
+// create post
 const createPost = async (req, res) => {
   uploadMiddleware.single("image")(req, res, async (err) => {
     if (err) {
@@ -20,22 +23,29 @@ const createPost = async (req, res) => {
         return res.status(401).json({ message: "Unauthorized: No user ID found" });
       }
 
-      let imagePath = null;
+      let imageName = null;
       if (req.file) {
         const { originalname, path: tempPath } = req.file;
         const parts = originalname.split(".");
         const ext = parts[parts.length - 1];
-        const newPath = tempPath + "." + ext;
+        const uniqueFilename = `${uuidv4()}.${ext}`;
+        const newPath = path.join(__dirname, "..", "uploads", uniqueFilename);
 
         fs.renameSync(tempPath, newPath);
-        imagePath = newPath;
+        imageName = uniqueFilename;
+      }
+
+      let imageUrl = null;
+      if (imageName) {
+        const serverBaseUrl = process.env.SERVER_URL || "http://localhost:5000";
+        imageUrl = `${serverBaseUrl}/uploads/${imageName}`;
       }
 
       const post = await prisma.post.create({
-        data: { title, content, image: imagePath, authorId },
+        data: { title, content, image: imageName, authorId },
       });
 
-      res.status(201).json(post);
+      res.status(201).json({ ...post, imageUrl });
     } catch (error) {
       console.error("Error creating post:", error);
       res.status(500).json({ error: error.message });
@@ -55,8 +65,17 @@ const getAllPosts = async (req, res) => {
         },
       },
     });
-    res.status(200).json(posts);
+
+    const serverBaseUrl = process.env.SERVER_URL || "http://localhost:5000";
+
+    const transformedPosts = posts.map((post) => ({
+      ...post,
+      imageUrl: post.image ? `${serverBaseUrl}/uploads/${post.image}` : null,
+    }));
+
+    res.status(200).json(transformedPosts);
   } catch (error) {
+    console.error("Error fetching posts:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -78,7 +97,11 @@ const getPostById = async (req, res) => {
     if (!post) {
       return res.status(404).json({ message: "Post not found" });
     }
-    res.status(200).json(post);
+
+    const serverBaseUrl = process.env.SERVER_URL || "http://localhost:5000";
+    const imageUrl = post.image ? `${serverBaseUrl}/uploads/${post.image}` : null;
+
+    res.status(200).json({ ...post, imageUrl });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -86,46 +109,90 @@ const getPostById = async (req, res) => {
 
 //update post by id
 const updatePost = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { title, content } = req.body;
-    const image = req.file ? req.file.path : null;
-
-    const existingPost = await prisma.post.findUnique({ where: { id } });
-    if (!existingPost) {
-      return res.status(404).json({ message: "Post not found" });
+  uploadMiddleware.single("image")(req, res, async (err) => {
+    if (err) {
+      console.error("File upload error:", err);
+      return res.status(400).json({ error: err.message });
     }
 
-    if (existingPost.authorId !== req.userId) {
-      return res.status(403).json({ message: "Forbidden: Not your post" });
-    }
+    try {
+      const { id } = req.params;
+      const { title, content } = req.body;
+      const userId = req.user.id;
 
-    const updatedPost = await prisma.post.update({
-      where: { id },
-      data: {
-        title: title || existingPost.title,
-        content: content || existingPost.content,
-        image: image || existingPost.image,
-      },
-    });
-    res.status(200).json(updatedPost);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+      const existingPost = await prisma.post.findUnique({ where: { id } });
+      if (!existingPost) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+
+      if (existingPost.authorId !== userId) {
+        return res.status(403).json({ message: "Forbidden: Not your post" });
+      }
+
+      let imageName = existingPost.image;
+      if (req.file) {
+        if (existingPost.image) {
+          const oldImagePath = path.join(__dirname, "..", "uploads", existingPost.image);
+          try {
+            fs.unlinkSync(oldImagePath);
+          } catch (unlinkError) {
+            console.error("Error deleting old image:", unlinkError);
+          }
+        }
+
+        const { originalname, path: tempPath } = req.file;
+        const parts = originalname.split(".");
+        const ext = parts[parts.length - 1];
+        const uniqueFilename = `${uuidv4()}.${ext}`;
+        const newPath = path.join(__dirname, "..", "uploads", uniqueFilename);
+
+        fs.renameSync(tempPath, newPath);
+        imageName = uniqueFilename;
+      }
+
+      const updatedPost = await prisma.post.update({
+        where: { id },
+        data: {
+          title: title || existingPost.title,
+          content: content || existingPost.content,
+          image: imageName,
+        },
+      });
+
+      const serverBaseUrl = process.env.SERVER_URL || "http://localhost:5000";
+      const imageUrl = imageName ? `${serverBaseUrl}/uploads/${imageName}` : null;
+
+      res.status(200).json({ ...updatedPost, imageUrl });
+    } catch (error) {
+      console.error("Error updating post:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 };
 
 //delete post by id
 const deletePost = async (req, res) => {
   try {
     const { id } = req.params;
-    const post = await prisma.post.findUnique({ where: { id } });
+    const userId = req.user.id;
 
-    if (!post) {
+    const postInfo = await prisma.post.findUnique({ where: { id } });
+
+    if (!postInfo) {
       return res.status(404).json({ message: "Post not found" });
     }
 
-    if (post.authorId !== req.userId) {
+    if (postInfo.authorId !== userId) {
       return res.status(403).json({ message: "Forbidden: Not your post" });
+    }
+
+    if (postInfo.image) {
+      const imageToDeletePath = path.join(__dirname, "..", "uploads", postInfo.image);
+      try {
+        fs.unlinkSync(imageToDeletePath);
+      } catch (unlinkError) {
+        console.error("Error deleting image:", unlinkError);
+      }
     }
 
     await prisma.post.delete({ where: { id } });
