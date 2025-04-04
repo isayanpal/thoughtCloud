@@ -52,7 +52,11 @@ export const useAuthStore = create<AuthState>((set, get)=>({
         try {
             set({ loading: true });
             const response = await axios.post(`${BASE_URL}/auth/register`, userData);
-            set({user: response.data.user, token: response.data.token ,loading: false });
+            set(()=>({
+                user: response.data.user, 
+                token: response.data.token, 
+                loading: false
+            }))
             localStorage.setItem("token", response.data.token);
         } catch (error:any) {
             console.error("Signup failed:", error);
@@ -64,7 +68,11 @@ export const useAuthStore = create<AuthState>((set, get)=>({
         try {
             set({ loading: true });
             const response = await axios.post(`${BASE_URL}/auth/login`, userData);
-            set({ user: response.data.user, token: response.data.token, loading: false });
+            set(()=>({
+                user: response.data.user, 
+                token: response.data.token, 
+                loading: false
+            }))
             localStorage.setItem("token", response.data.token);
         } catch (error:any) {
             console.error("Login failed:", error);
@@ -86,26 +94,31 @@ export const usePostStore = create<PostState>((set,get)=>({
     createPost: async (postData) => {
         try {
             set({ loading: true });
+    
             const token = useAuthStore.getState().token;
-            const response = await axios.post(`${BASE_URL}/api/posts`, postData, {
+    
+            const response = await axios.post(`${BASE_URL}/posts`, postData, {
                 headers: {
-                    Authorization: `Bearer ${token}`
-                }
+                    "Content-Type": "multipart/form-data",
+                    Authorization: `Bearer ${token}`,
+                },
             });
-            set((state)=>({
+    
+            set((state) => ({
                 posts: [...state.posts, response.data],
-                loading: false
-            }))
-        } catch (error:any) {
+                loading: false,
+            }));
+        } catch (error: any) {
             console.error("Create post failed:", error);
             set({ loading: false, error: error.message });
         }
     },
+    
 
     getAllPosts: async () => {
         try {
             set({loading: true});
-            const response = await axios.get(`${BASE_URL}/api/posts`);
+            const response = await axios.get(`${BASE_URL}/posts`);
             set({posts: response.data, loading: false});
         } catch (error:any) {
             console.error("Fetch posts failed:", error);
@@ -116,7 +129,7 @@ export const usePostStore = create<PostState>((set,get)=>({
     getPostById: async (id) => {
         try {
             set({ loading: true });
-            const response = await axios.get(`${BASE_URL}/api/posts/${id}`);
+            const response = await axios.get(`${BASE_URL}/posts/${id}`);
             set({ loading: false });
             return response.data;
           } catch (error: any) {
@@ -129,7 +142,7 @@ export const usePostStore = create<PostState>((set,get)=>({
         try {
             set({ loading: true });
             const token = useAuthStore.getState().token;
-            const response = await axios.put(`${BASE_URL}/api/posts/${id}`, postData, {
+            const response = await axios.put(`${BASE_URL}/posts/${id}`, postData, {
               headers: { Authorization: `Bearer ${token}` },
             });
             set((state) => ({
@@ -146,7 +159,7 @@ export const usePostStore = create<PostState>((set,get)=>({
         try {
             set({ loading: true });
             const token = useAuthStore.getState().token;
-            await axios.delete(`${BASE_URL}/api/posts/${id}`, {
+            await axios.delete(`${BASE_URL}/posts/${id}`, {
               headers: { Authorization: `Bearer ${token}` },
             });
             set((state) => ({ posts: state.posts.filter((post) => post.id !== id), loading: false }));

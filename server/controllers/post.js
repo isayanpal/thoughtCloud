@@ -1,26 +1,46 @@
 const { PrismaClient } = require("@prisma/client");
+const multer = require("multer");
+const fs = require("fs");
+
 const prisma = new PrismaClient();
 
-//create post
-const createPost = async (req, res) => {
-  try {
-    const { title, content } = req.body;
-    const image = req.file ? req.file.path : null;
-    const authorId = req.userId;
+const uploadMiddleware = multer({ dest: "uploads/" });
 
-    if (!authorId) {
-      return res
-        .status(401)
-        .json({ message: "Unauthorized: No user ID found" });
+const createPost = async (req, res) => {
+  uploadMiddleware.single("image")(req, res, async (err) => {
+    if (err) {
+      console.error("File upload error:", err);
+      return res.status(400).json({ error: err.message });
     }
 
-    const post = await prisma.post.create({
-      data: { title, content, image, authorId },
-    });
-    res.status(201).json(post);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+    try {
+      const { title, content, authorId } = req.body;
+
+      if (!authorId) {
+        return res.status(401).json({ message: "Unauthorized: No user ID found" });
+      }
+
+      let imagePath = null;
+      if (req.file) {
+        const { originalname, path: tempPath } = req.file;
+        const parts = originalname.split(".");
+        const ext = parts[parts.length - 1];
+        const newPath = tempPath + "." + ext;
+
+        fs.renameSync(tempPath, newPath);
+        imagePath = newPath;
+      }
+
+      const post = await prisma.post.create({
+        data: { title, content, image: imagePath, authorId },
+      });
+
+      res.status(201).json(post);
+    } catch (error) {
+      console.error("Error creating post:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 };
 
 //get all posts
