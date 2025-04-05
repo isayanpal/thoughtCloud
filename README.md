@@ -15,6 +15,7 @@
 * **Modern UI:** A clean and intuitive user interface powered by Shadcn UI.
 * **Smooth Animations:** Engaging user experience with Framer Motion.
 * **Secure Authentication:** Backend utilizes JSON Web Tokens (JWT) for secure user authentication.
+* **Centralized State Management:** Frontend utilizes Zustand for efficient and scalable state management.
 
 ## Tech Stack
 **Frontend:**
@@ -23,6 +24,7 @@
 * **Tailwind CSS:** A utility-first CSS framework for rapid styling.
 * **Shadcn UI:** A collection of reusable UI components built using Radix UI and Tailwind CSS.
 * **Framer Motion:** A powerful animation library for React.
+* **Zustand:** A small, fast, and scalable bearbones state-management solution.
 
 **Backend:**
 
