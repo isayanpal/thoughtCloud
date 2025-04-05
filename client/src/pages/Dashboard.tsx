@@ -22,7 +22,7 @@ export default function Dashboard() {
     posts,
     loading,
     error,
-    allPostsFetched,
+    // allPostsFetched,
     currentPage,
     postsPerPage,
     searchQuery,
