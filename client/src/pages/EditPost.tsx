@@ -106,13 +106,13 @@ export default function EditPost() {
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <Card className="max-w-md mx-auto mt-10 p-4">
+      <Card className="max-w-4xl mx-auto mt-10 p-4">
         <CardHeader>
           <CardTitle>Edit Post</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="title">Title</Label>
               <Input
                 id="title"
@@ -123,7 +123,7 @@ export default function EditPost() {
               />
             </div>
 
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="content">Content</Label>
               <Textarea
                 id="content"
@@ -134,7 +134,7 @@ export default function EditPost() {
               />
             </div>
 
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="image">Upload New Image (Optional)</Label>
               <Input
                 id="image"
