@@ -22,6 +22,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
 
+app.get("/", (req, res) => {
+  res.send("Welcome to the ThoughtCloud API");
+});
+
 const PORT = 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port: ${PORT}`);
